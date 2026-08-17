@@ -1,0 +1,1 @@
+"""Course media upload service."""

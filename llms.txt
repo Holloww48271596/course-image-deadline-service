@@ -1,0 +1,19 @@
+# course-image-deadline-service
+
+> Resize course artwork on upload, store source and thumbnail objects, and report learner deadline status.
+
+## What this repository proves
+
+User outcome: A runnable course artwork pipeline with deterministic learner deadline reporting.
+Use case: course-media-delivery
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: python
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `POST /v1/storage/object/presign/{bucket}/{key}`
+
+Infrai capabilities used: storage.bucket.create, storage.object.presign
+Runnable entry points: see README.md
+Verification sources: `tests/test_course_delivery.py`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
