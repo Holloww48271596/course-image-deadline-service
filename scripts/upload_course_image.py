@@ -13,6 +13,7 @@ def main() -> None:
     parser.add_argument("--title", required=True)
     parser.add_argument("--deadline", required=True, help="ISO 8601 timestamp")
     parser.add_argument("--service", default="http://127.0.0.1:8000")
+    parser.add_argument("--output", type=Path, default=Path("course-thumbnail.jpg"))
     args = parser.parse_args()
 
     with args.image.open("rb") as image_file:
@@ -24,7 +25,8 @@ def main() -> None:
             timeout=60.0,
         )
     response.raise_for_status()
-    print(response.json())
+    args.output.write_bytes(response.content)
+    print(args.output)
 
 
 if __name__ == "__main__":

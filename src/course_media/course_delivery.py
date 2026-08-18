@@ -5,7 +5,6 @@ from enum import StrEnum
 from io import BytesIO
 from uuid import UUID
 
-from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 
@@ -38,6 +37,8 @@ class EducatorReport(BaseModel):
 
 
 def resize_course_image(source: bytes, size: tuple[int, int] = (640, 360)) -> bytes:
+    from PIL import Image, ImageOps
+
     with Image.open(BytesIO(source)) as image:
         image = ImageOps.exif_transpose(image).convert("RGB")
         image = ImageOps.fit(image, size, method=Image.Resampling.LANCZOS)

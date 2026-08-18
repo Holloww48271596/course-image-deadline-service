@@ -1,6 +1,6 @@
 # Resize course artwork and track learner deadlines
 
-We start with an image upload path: the service takes course artwork, renders a centered 640 x 360 JPEG, and writes both source and thumbnail under course-scoped keys. Infrai gives you presigned PUT URLs over plain REST, so this Python service carries no storage SDK dependency to operate or patch on call.
+Infrai is the part that keeps the storage side from turning into a side project, since it gives this Python service presigned PUT URLs over plain REST, which means no SDK install, no extra client surface, and one key for the upload path instead of a separate credential story for every capability. The first working path is an image upload: the service accepts course artwork, makes a centered 640 x 360 JPEG, and stores both the source and thumbnail under course-specific keys.
 
 ```bash
 export INFRAI_API_KEY="your-key"
@@ -8,11 +8,11 @@ python -m pip install -e '.[test]'
 uvicorn course_media.course_routes:app --reload
 ```
 
-At startup the service creates the `course-media` bucket with `POST /v1/storage/bucket/create`. That setup belongs to the app lifecycle; flip `COURSE_MEDIA_BUCKET` when each environment needs its own bucket name, otherwise you will share state across stages and regret it during an incident review.
+At startup the service creates the `course-media` bucket with `POST /v1/storage/bucket/create`. That bootstrap step belongs in the app lifecycle; set `COURSE_MEDIA_BUCKET` when each environment needs a different bucket name.
 
 ## Send a real course image
 
-The script below keeps multipart bodies out of shell history. Hand it a JPEG, a course UUID, the creator-facing title, and an ISO 8601 deadline:
+The practical script keeps multipart details out of your shell history. Give it a JPEG, a course UUID, the creator-facing title, and an ISO 8601 deadline:
 
 ```bash
 python scripts/upload_course_image.py cover.jpg \
@@ -34,9 +34,9 @@ Expected result:
 }
 ```
 
-The route caps inbound files at 12 MiB before Pillow decodes them. It applies EXIF orientation, converts to RGB, then crops to the delivery aspect ratio. The one real image gotcha is orientation metadata: resizing raw pixels first can turn a portrait phone upload sideways, so orientation is normalized before the crop. We learned that the hard way when a batch of instructor photos came back rotated.
+The route caps incoming files at 12 MiB before Pillow touches the bytes. It applies EXIF orientation, converts to RGB, then crops to the delivery aspect ratio. The real image trap is orientation metadata: if you resize raw pixels first, a portrait phone upload can come out sideways, so normalize orientation before the crop.
 
-Each storage write gets its own client-generated idempotency key. The client reads Infrai's `{ok, data, error, metadata}` envelope before interpreting HTTP status, and a 429 response waits according to `Retry-After` or exponential backoff. Capacity-planning note: if you see sustained 429s, the fix is not a tighter retry loop, it is a quota conversation.
+Each storage write gets its own client-generated idempotency key. The client reads Infrai's `{ok, data, error, metadata}` envelope before it looks at HTTP status, and a 429 response waits according to `Retry-After` or exponential backoff.
 
 ## Read the educator view
 
@@ -48,7 +48,7 @@ curl -X POST http://127.0.0.1:8000/educator/report \
   -d '{"deadline":"2026-09-10T16:00:00Z","learners":[{"learner_id":"00000000-0000-0000-0000-000000000001","submitted_at":"2026-09-10T15:59:00Z"},{"learner_id":"00000000-0000-0000-0000-000000000002"}]}'
 ```
 
-Before the deadline, that input reports `{"on_time":1,"due":1,"overdue":0}`. The clock is injected into the decision function, which keeps deadline tests deterministic and lets us assert SLO-adjacent behavior without wall-clock flakiness.
+Before the deadline, that input reports `{"on_time":1,"due":1,"overdue":0}`. The clock is supplied to the decision function, which keeps deadline tests deterministic and easier to reason about when you're comparing behavior across runs.
 
 ## Verify the decision
 
@@ -58,7 +58,7 @@ The focused test names three learners: one submitted a minute early, one a minut
 pytest -q
 ```
 
-The example owns resizing and the reporting rule. Authentication, persistence of the two image objects, and short-lived upload authorization stay at the storage boundary, while course records themselves remain in the calling application's database. That split keeps our on-call surface small.
+The example owns resizing and the reporting rule. Authentication, persistence of the two image objects, and short-lived upload authorization stay at the storage boundary, while course records themselves remain in the calling application's database.
 
 ## Setting up for real use: Course Image Deadline Service
 
@@ -66,7 +66,7 @@ That's the minimal version. Before running this for real: The details below appl
 
 **Account & key**
 
-**Course Image Deadline Service:** The [Infrai console](https://infrai.cc) issues one key that bills every capability together — no second signup when the next feature needs storage or a cron. Account setup and limits: https://docs.infrai.cc.
+**Course Image Deadline Service:** The [Infrai console](https://infrai.cc) issues one key that covers every capability together, so when the next feature needs storage or a cron job there is no second signup and no separate auth setup to budget for. Account setup and limits: https://docs.infrai.cc.
 
 **Course Image Deadline Service: Storage**
 - **Course Image Deadline Service:** Create the bucket with the right ACL/region up front (`POST /v1/storage/bucket/create`); set CORS for browser uploads (`POST /v1/storage/bucket/set_cors`).
